@@ -6,6 +6,7 @@
 #include "image.h"
 #include "map.h"
 #include "poketext.h"
+#include "pokescript.h"
 #include "lz77.h"
 
 #include <QApplication>
@@ -540,7 +541,76 @@ void MainWindow::doOutput(QString &outputtext, QString &outputtextFooter,
         outputtext += "  \"connections\": " + connectionsStr + ",\n";
     }
 
-    outputtext += "  \"object_events\": [],\n";
+    // ---- Read object events from ROM ----
+    // ObjectEventTemplate: 24 bytes each
+    // +0 localId, +1 graphicsId, +4 x(s16), +6 y(s16), +8 elevation, +9 movementType,
+    // +10 movRangeX(lo nibble)/movRangeY(hi nibble), +12 trainerType(u16), +14 trainerRange(u16),
+    // +16 script ptr, +20 flagId(u16)
+    {
+        QString objectEventsStr = "[]";
+        int objCount = readHex(rom, g_mapEvents + 0, 1).toInt(nullptr, 16);
+        int objArrRaw = readInt32LE(rom, g_mapEvents + 4);
+        if (objCount > 0 && objCount <= 255 && objArrRaw != 0)
+        {
+            int objArr = objArrRaw - 0x8000000;
+            QStringList parts;
+            for (int oi = 0; oi < objCount; oi++)
+            {
+                int ob        = objArr + oi * 24;
+                int localId   = readHex(rom, ob + 0, 1).toInt(nullptr, 16);
+                int graphicsId = readHex(rom, ob + 1, 1).toInt(nullptr, 16);
+                int kind      = readHex(rom, ob + 2, 1).toInt(nullptr, 16); // 0=OBJ_KIND_NORMAL, 255=OBJ_KIND_CLONE
+                int ox        = static_cast<int16_t>(reverseHex(readHex(rom, ob + 4, 2)).toInt(nullptr, 16));
+                int oy        = static_cast<int16_t>(reverseHex(readHex(rom, ob + 6, 2)).toInt(nullptr, 16));
+
+                if (kind == 255) {  // OBJ_KIND_CLONE
+                    int targetLocalId  = readHex(rom, ob + 8, 1).toInt(nullptr, 16);
+                    int targetMapNum   = reverseHex(readHex(rom, ob + 12, 2)).toInt(nullptr, 16);
+                    int targetMapGroup = reverseHex(readHex(rom, ob + 14, 2)).toInt(nullptr, 16);
+                    QString targetName = resolveExportName(targetMapGroup, targetMapNum);
+                    QString targetMap  = "MAP_" + targetName + "_" + QString::number(targetMapGroup) + "_" + QString::number(targetMapNum);
+                    parts += "    {\"type\": \"clone\""
+                        + QString(", \"graphics_id\": \"") + enumName("graphics_id", graphicsId) + "\""
+                        + ", \"x\": " + QString::number(ox)
+                        + ", \"y\": " + QString::number(oy)
+                        + ", \"target_local_id\": " + QString::number(targetLocalId)
+                        + ", \"target_map\": \"" + targetMap + "\""
+                        + "}";
+                } else {
+                    // Normal object event
+                    int elevation    = readHex(rom, ob + 8, 1).toInt(nullptr, 16);
+                    int movType      = readHex(rom, ob + 9, 1).toInt(nullptr, 16);
+                    int movByte      = readHex(rom, ob + 10, 1).toInt(nullptr, 16);
+                    int movRangeX    = movByte & 0xF;
+                    int movRangeY    = (movByte >> 4) & 0xF;
+                    int trainerType  = reverseHex(readHex(rom, ob + 12, 2)).toInt(nullptr, 16);
+                    int trainerRange = reverseHex(readHex(rom, ob + 14, 2)).toInt(nullptr, 16);
+                    int scriptRaw    = readInt32LE(rom, ob + 16);
+                    int scriptOff    = scriptRaw - 0x8000000;
+                    int flagId       = reverseHex(readHex(rom, ob + 20, 2)).toInt(nullptr, 16);
+                    QString scriptStr = (scriptOff > 0 && scriptOff < 0x2000000)
+                        ? enBM + "_Script_" + QString("%1").arg(scriptOff, 8, 16, QChar('0')).toUpper()
+                        : "0x" + QString::number(static_cast<uint>(scriptRaw), 16).toUpper();
+                    parts += "    {\"type\": \"object\""
+                        + QString(", \"local_id\": ") + QString::number(localId)
+                        + ", \"graphics_id\": \"" + enumName("graphics_id", graphicsId) + "\""
+                        + ", \"x\": " + QString::number(ox)
+                        + ", \"y\": " + QString::number(oy)
+                        + ", \"elevation\": " + QString::number(elevation)
+                        + ", \"movement_type\": \"" + enumName("movement_type", movType) + "\""
+                        + ", \"movement_range_x\": " + QString::number(movRangeX)
+                        + ", \"movement_range_y\": " + QString::number(movRangeY)
+                        + ", \"trainer_type\": \"" + enumName("trainer_type", trainerType) + "\""
+                        + ", \"trainer_sight_or_berry_tree_id\": \"" + QString::number(trainerRange) + "\""
+                        + ", \"script\": \"" + scriptStr + "\""
+                        + ", \"flag\": \"" + enumName("flag", flagId) + "\""
+                        + "}";
+                }
+            }
+            objectEventsStr = "[\n" + parts.join(",\n") + "\n  ]";
+        }
+        outputtext += "  \"object_events\": " + objectEventsStr + ",\n";
+    }
 
     // ---- Read warp events from ROM ----
     {
@@ -569,8 +639,132 @@ void MainWindow::doOutput(QString &outputtext, QString &outputtextFooter,
         outputtext += "  \"warp_events\": " + warpsStr + ",\n";
     }
 
-    outputtext += "  \"coord_events\": [],\n";
-    outputtext += "  \"bg_events\": []\n";
+    // ---- Read coord events from ROM ----
+    // CoordEvent: 16 bytes each
+    // +0 x(s16), +2 y(s16), +4 elevation, +6 trigger(u16), +8 index(u16), +12 script ptr
+    {
+        QString coordEventsStr = "[]";
+        int coordCount = readHex(rom, g_mapEvents + 2, 1).toInt(nullptr, 16);
+        int coordArrRaw = readInt32LE(rom, g_mapEvents + 12);
+        if (coordCount > 0 && coordCount <= 255 && coordArrRaw != 0)
+        {
+            int coordArr = coordArrRaw - 0x8000000;
+            QStringList parts;
+            for (int ci = 0; ci < coordCount; ci++)
+            {
+                int cb = coordArr + ci * 16;
+                int cx       = static_cast<int16_t>(reverseHex(readHex(rom, cb + 0, 2)).toInt(nullptr, 16));
+                int cy       = static_cast<int16_t>(reverseHex(readHex(rom, cb + 2, 2)).toInt(nullptr, 16));
+                int celev    = readHex(rom, cb + 4, 1).toInt(nullptr, 16);
+                int trigger  = reverseHex(readHex(rom, cb + 6, 2)).toInt(nullptr, 16);
+                int index    = reverseHex(readHex(rom, cb + 8, 2)).toInt(nullptr, 16);
+                int scriptRaw = readInt32LE(rom, cb + 12);
+                int scriptOff = scriptRaw - 0x8000000;
+                QString scriptStr = (scriptOff > 0 && scriptOff < 0x2000000)
+                    ? enBM + "_Script_" + QString("%1").arg(scriptOff, 8, 16, QChar('0')).toUpper()
+                    : "0x" + QString::number(static_cast<uint>(scriptRaw), 16).toUpper();
+                parts += "    {\"x\": " + QString::number(cx)
+                    + ", \"y\": " + QString::number(cy)
+                    + ", \"elevation\": " + QString::number(celev)
+                    + ", \"trigger\": " + QString::number(trigger)
+                    + ", \"index\": " + QString::number(index)
+                    + ", \"script\": \"" + scriptStr + "\""
+                    + "}";
+            }
+            coordEventsStr = "[\n" + parts.join(",\n") + "\n  ]";
+        }
+        outputtext += "  \"coord_events\": " + coordEventsStr + ",\n";
+    }
+
+    // ---- Read bg events from ROM ----
+    // BgEvent: 12 bytes each
+    // +0 x(u16), +2 y(u16), +4 elevation(u8), +5 kind(u8), +6 padding(u16), +8 union(u32)
+    // kind: 0=FACING_ANY 1=NORTH 2=SOUTH 3=EAST 4=WEST  7=HIDDEN_ITEM  8=SECRET_BASE
+    {
+        static const char *const kFacingDir[] = {
+            "BG_EVENT_PLAYER_FACING_ANY",
+            "BG_EVENT_PLAYER_FACING_NORTH",
+            "BG_EVENT_PLAYER_FACING_SOUTH",
+            "BG_EVENT_PLAYER_FACING_EAST",
+            "BG_EVENT_PLAYER_FACING_WEST",
+        };
+
+        QString bgEventsStr = "[]";
+        int bgCount = readHex(rom, g_mapEvents + 3, 1).toInt(nullptr, 16);
+        int bgArrRaw = readInt32LE(rom, g_mapEvents + 16);
+        if (bgCount > 0 && bgCount <= 255 && bgArrRaw != 0)
+        {
+            int bgArr = bgArrRaw - 0x8000000;
+            QStringList parts;
+            for (int bi = 0; bi < bgCount; bi++)
+            {
+                int bb      = bgArr + bi * 12;
+                int bx      = reverseHex(readHex(rom, bb + 0, 2)).toInt(nullptr, 16);
+                int by      = reverseHex(readHex(rom, bb + 2, 2)).toInt(nullptr, 16);
+                int belev   = readHex(rom, bb + 4, 1).toInt(nullptr, 16);
+                int bkind   = readHex(rom, bb + 5, 1).toInt(nullptr, 16);
+                uint32_t unionVal = static_cast<uint32_t>(readInt32LE(rom, bb + 8));
+
+                QString common = "    {\"x\": " + QString::number(bx)
+                    + ", \"y\": " + QString::number(by)
+                    + ", \"elevation\": " + QString::number(belev);
+
+                if (bkind == 7) {
+                    // BG_EVENT_HIDDEN_ITEM bit layout differs between games.
+                    // FR  (global.fieldmap.h GET_HIDDEN_ITEM_*):
+                    //   bits  0-15: item id  (16 bits)
+                    //   bits 16-23: flag id  ( 8 bits)
+                    //   bits 24-30: quantity ( 7 bits)
+                    //   bit     31: underfoot( 1 bit )
+                    // Emerald (struct hiddenItem):
+                    //   bits  0-15: item id       (u16)
+                    //   bits 16-31: hiddenItemId  (u16, flag)
+                    //   quantity/underfoot not stored → 0/false
+                    int itemId, flagId, quantity;
+                    bool underfoot;
+                    if (isFR) {
+                        itemId   = static_cast<int>( unionVal        & 0xFFFF);
+                        flagId   = static_cast<int>((unionVal >> 16) & 0x00FF);
+                        quantity = static_cast<int>((unionVal >> 24) & 0x7F);
+                        underfoot = (unionVal >> 31) & 0x1;
+                    } else {
+                        itemId   = static_cast<int>( unionVal        & 0xFFFF);
+                        flagId   = static_cast<int>((unionVal >> 16) & 0xFFFF);
+                        quantity = 0;
+                        underfoot = false;
+                    }
+                    parts += common
+                        + ", \"type\": \"hidden_item\""
+                        + ", \"item\": \"" + enumName("item", itemId) + "\""
+                        + ", \"flag\": \"" + enumName("flag", flagId) + "\""
+                        + ", \"quantity\": " + QString::number(quantity)
+                        + ", \"underfoot\": " + (underfoot ? "true" : "false")
+                        + "}";
+                } else if (bkind == 8) {
+                    // BG_EVENT_SECRET_BASE: union = secret base id
+                    parts += common
+                        + ", \"type\": \"secret_base\""
+                        + ", \"secret_base_id\": \"0x" + QString::number(unionVal, 16).toUpper() + "\""
+                        + "}";
+                } else {
+                    // Sign event: kind 0-4 = player facing direction
+                    const char *facing = (bkind >= 0 && bkind <= 4)
+                        ? kFacingDir[bkind] : "BG_EVENT_PLAYER_FACING_ANY";
+                    int scriptOff = static_cast<int>(unionVal) - 0x8000000;
+                    QString scriptStr = (scriptOff > 0 && scriptOff < 0x2000000)
+                        ? enBM + "_Script_" + QString("%1").arg(scriptOff, 8, 16, QChar('0')).toUpper()
+                        : "0x" + QString::number(unionVal, 16).toUpper();
+                    parts += common
+                        + ", \"type\": \"sign\""
+                        + ", \"player_facing_dir\": \"" + facing + "\""
+                        + ", \"script\": \"" + scriptStr + "\""
+                        + "}";
+                }
+            }
+            bgEventsStr = "[\n" + parts.join(",\n") + "\n  ]";
+        }
+        outputtext += "  \"bg_events\": " + bgEventsStr + "\n";
+    }
     outputtext += "}\n";
 
     // ---- Read map footer / layout data (populate globals used by binary export) ----
@@ -834,6 +1028,67 @@ void MainWindow::exportMap(const QString &folder, int bankIdx, int mapIdx)
         QFile mf(mapDir + "map.json");
         (void)mf.open(QIODevice::WriteOnly | QIODevice::Text);
         mf.write(outputtext.toUtf8());
+    }
+
+    // ---- Write data/maps/<name>/scripts.inc ----
+    {
+        QList<int> eventScriptOffsets;
+        const QString &rom = g_loadedROM;
+
+        // Object events: events block +0 = count, +4 = array ptr, 24 bytes each, script at +16
+        {
+            int count  = readHex(rom, g_mapEvents + 0, 1).toInt(nullptr, 16);
+            int arrRaw = readInt32LE(rom, g_mapEvents + 4);
+            if (count > 0 && count <= 255 && arrRaw != 0)
+            {
+                int arr = arrRaw - 0x8000000;
+                for (int i = 0; i < count; ++i)
+                {
+                    int scriptRaw = readInt32LE(rom, arr + i * 24 + 16);
+                    if (scriptRaw >= 0x08000000 && scriptRaw < 0x0C000000)
+                        eventScriptOffsets.append(scriptRaw - 0x8000000);
+                }
+            }
+        }
+        // Coord events: events block +2 = count, +12 = array ptr, 16 bytes each, script at +12
+        {
+            int count  = readHex(rom, g_mapEvents + 2, 1).toInt(nullptr, 16);
+            int arrRaw = readInt32LE(rom, g_mapEvents + 12);
+            if (count > 0 && count <= 255 && arrRaw != 0)
+            {
+                int arr = arrRaw - 0x8000000;
+                for (int i = 0; i < count; ++i)
+                {
+                    int scriptRaw = readInt32LE(rom, arr + i * 16 + 12);
+                    if (scriptRaw >= 0x08000000 && scriptRaw < 0x0C000000)
+                        eventScriptOffsets.append(scriptRaw - 0x8000000);
+                }
+            }
+        }
+        // BG events: events block +3 = count, +16 = array ptr, 12 bytes each, script at +8
+        {
+            int count  = readHex(rom, g_mapEvents + 3, 1).toInt(nullptr, 16);
+            int arrRaw = readInt32LE(rom, g_mapEvents + 16);
+            if (count > 0 && count <= 255 && arrRaw != 0)
+            {
+                int arr = arrRaw - 0x8000000;
+                for (int i = 0; i < count; ++i)
+                {
+                    int scriptRaw = readInt32LE(rom, arr + i * 12 + 8);
+                    if (scriptRaw >= 0x08000000 && scriptRaw < 0x0C000000)
+                        eventScriptOffsets.append(scriptRaw - 0x8000000);
+                }
+            }
+        }
+
+        bool isFR = (g_header2 == "BPR" || g_header2 == "BPG");
+        QString scriptsInc = decompileMapScripts(g_loadedROM, enBM, g_mapLevelScripts, eventScriptOffsets, isFR);
+        if (!scriptsInc.isEmpty())
+        {
+            QFile sf(mapDir + "scripts.inc");
+            (void)sf.open(QIODevice::WriteOnly | QIODevice::Text);
+            sf.write(scriptsInc.toUtf8());
+        }
     }
 
     // ---- Write temp binary files ----

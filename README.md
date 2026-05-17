@@ -1,6 +1,6 @@
 # PokeMapExport
 
-A Windows GUI tool for extracting map data from GBA Pokémon ROMs into a format compatible with the [pokeemerald](https://github.com/pret/pokeemerald) / [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion) decompilation projects.
+A Windows GUI tool for extracting map data from GBA Pokémon ROMs into a format compatible with the [pokeemerald](https://github.com/pret/pokeemerald) / [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion) decompilation projects. Original concept was made by hand and ode is expanded on and improved with github copilot.
 
 ---
 
@@ -23,7 +23,7 @@ ROM hacks based on these games are supported, but the offsets in `config.json` (
 - **Map preview** — browse all maps in the ROM with a live rendered tile preview
 - **Tileset preview** — inspect primary and secondary tile sheets and palettes
 - **Export Map** — export a single selected map and all its associated data
-- **Export All** — export every map in the ROM in one pass
+- **Export All** — export every map in the ROM in one pass. Dumps all events and scripts.
 - **Export World Image** — render a stitched PNG of a map and all its connected neighbours
 
 ---

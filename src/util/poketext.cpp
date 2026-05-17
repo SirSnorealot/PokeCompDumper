@@ -201,8 +201,8 @@ QString decodePokeText(const QByteArray& bytes, bool japanese)
             case 0xAF: y = "\uFF77"; break; // ｷ
             case 0xFA: y = "\\l"; break;
             case 0xFB: y = "\\p"; break;
-            case 0xFC: y = "\\c"; nextIsHex = true; break;
-            case 0xFD: y = "\\v"; nextIsHex = true; break;
+            case 0xFC: y = "\\c"; nextIsHex = true; break; // Japanese FC: raw hex follows
+            case 0xFD: y = "\\v"; nextIsHex = true; break; // Japanese FD: raw hex follows
             case 0xFE: y = "\\n"; break;
             default:
                 y = QString("\\h%1").arg(x, 2, 16, QChar('0')).toUpper();
@@ -363,8 +363,87 @@ QString decodePokeText(const QByteArray& bytes, bool japanese)
             case 0xF9: y = "[l]";  break;
             case 0xFA: y = "\\l";  break;
             case 0xFB: y = "\\p";  break;
-            case 0xFC: y = "";     break;
-            case 0xFD: y = "\\v";  break;
+            case 0xFC: {
+                // Multi-byte control code: FC XX [params...]
+                if (idx + 1 < bytes.size()) {
+                    unsigned char sub = static_cast<unsigned char>(bytes[++idx]);
+                    const char *name = nullptr;
+                    int extra = 0;
+                    switch (sub) {
+                    case 0x00: name = "NAME_END";              extra = 0; break;
+                    case 0x01: name = "COLOR";                 extra = 1; break;
+                    case 0x02: name = "HIGHLIGHT";             extra = 1; break;
+                    case 0x03: name = "SHADOW";                extra = 1; break;
+                    case 0x04: name = "COLOR_HIGHLIGHT_SHADOW";extra = 3; break;
+                    case 0x05: name = "PALETTE";               extra = 1; break;
+                    case 0x06: name = "FONT";                  extra = 1; break;
+                    case 0x07: name = "RESET_FONT";            extra = 0; break;
+                    case 0x08: name = "PAUSE";                 extra = 1; break;
+                    case 0x09: name = "PAUSE_UNTIL_PRESS";     extra = 0; break;
+                    case 0x0A: name = "WAIT_SE";               extra = 0; break;
+                    case 0x0B: name = "PLAY_BGM";              extra = 2; break;
+                    case 0x0C: name = "ESCAPE";                extra = 0; break;
+                    case 0x0D: name = "SHIFT_RIGHT";           extra = 1; break;
+                    case 0x0E: name = "SHIFT_DOWN";            extra = 1; break;
+                    case 0x0F: name = "FILL_WINDOW";           extra = 0; break;
+                    case 0x10: name = "PLAY_SE";               extra = 2; break;
+                    case 0x11: name = "CLEAR";                 extra = 1; break;
+                    case 0x12: name = "SKIP";                  extra = 1; break;
+                    case 0x13: name = "CLEAR_TO";              extra = 1; break;
+                    case 0x14: name = "MIN_LETTER_SPACING";    extra = 1; break;
+                    case 0x15: name = "JPN";                   extra = 0; break;
+                    case 0x16: name = "ENG";                   extra = 0; break;
+                    case 0x17: name = "PAUSE_MUSIC";           extra = 0; break;
+                    case 0x18: name = "RESUME_MUSIC";          extra = 0; break;
+                    default:   break;
+                    }
+                    if (name) {
+                        y = QString("{%1}").arg(name);
+                        if (extra == 1 && idx + 1 < bytes.size()) {
+                            unsigned char p = static_cast<unsigned char>(bytes[++idx]);
+                            y += QString("{0x%1}").arg(p, 2, 16, QChar('0')).toUpper();
+                        } else if (extra == 2 && idx + 2 < bytes.size()) {
+                            unsigned char lo = static_cast<unsigned char>(bytes[++idx]);
+                            unsigned char hi = static_cast<unsigned char>(bytes[++idx]);
+                            uint16_t val = static_cast<uint16_t>(lo) | (static_cast<uint16_t>(hi) << 8);
+                            y += "{0x" + QString::number(val, 16).toUpper().rightJustified(4, '0') + "}";
+                        } else if (extra == 3 && idx + 3 < bytes.size()) {
+                            for (int e = 0; e < 3; e++) {
+                                unsigned char p = static_cast<unsigned char>(bytes[++idx]);
+                                y += QString("{0x%1}").arg(p, 2, 16, QChar('0')).toUpper();
+                            }
+                        }
+                    } else {
+                        y = QString("{FC_%1}").arg(sub, 2, 16, QChar('0')).toUpper();
+                    }
+                }
+                break;
+            }
+            case 0xFD: {
+                // Variable substitution: next byte is buffer index
+                if (idx + 1 < bytes.size()) {
+                    unsigned char varIdx = static_cast<unsigned char>(bytes[++idx]);
+                    switch (varIdx) {
+                    case 0x01: y = "{PLAYER}";         break;
+                    case 0x02: y = "{STR_VAR_1}";      break;
+                    case 0x03: y = "{STR_VAR_2}";      break;
+                    case 0x04: y = "{STR_VAR_3}";      break;
+                    case 0x05: y = "{KUN}";             break;
+                    case 0x06: y = "{RIVAL}";           break;
+                    case 0x07: y = "{VERSION}";         break;
+                    case 0x08: y = "{EVIL_TEAM}";       break;
+                    case 0x09: y = "{GOOD_TEAM}";       break;
+                    case 0x0A: y = "{EVIL_LEADER}";     break;
+                    case 0x0B: y = "{GOOD_LEADER}";     break;
+                    case 0x0C: y = "{EVIL_LEGENDARY}";  break;
+                    case 0x0D: y = "{GOOD_LEGENDARY}";  break;
+                    default:
+                        y = QString("{STR_VAR_%1}").arg(varIdx, 2, 16, QChar('0')).toUpper();
+                        break;
+                    }
+                }
+                break;
+            }
             case 0xFE: y = "\\n";  break;
             default:
                 y = QString("\\h%1").arg(x, 2, 16, QChar('0')).toUpper();

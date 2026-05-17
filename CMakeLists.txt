@@ -19,6 +19,7 @@ set(SOURCES
     src/util/poketext.cpp
     src/util/image.cpp
     src/util/map.cpp
+    src/util/pokescript.cpp
     src/mainwindow.cpp
     src/mainwindow.ui
 )
@@ -31,6 +32,7 @@ set(HEADERS
     src/util/poketext.h
     src/util/image.h
     src/util/map.h
+    src/util/pokescript.h
     src/mainwindow.h
 )
 
