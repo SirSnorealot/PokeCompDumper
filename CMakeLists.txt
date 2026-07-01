@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(PokeMapExport VERSION 1.0 LANGUAGES CXX)
+project(PokeCompDumper VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -40,21 +40,21 @@ if(WIN32)
     list(APPEND SOURCES src/version.rc)
 endif()
 
-qt_add_executable(PokeMapExport ${SOURCES} ${HEADERS})
+qt_add_executable(PokeCompDumper ${SOURCES} ${HEADERS})
 
-target_link_libraries(PokeMapExport PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
+target_link_libraries(PokeCompDumper PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
 
 if(WIN32)
-    set_target_properties(PokeMapExport PROPERTIES
+    set_target_properties(PokeCompDumper PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
 endif()
 
-target_include_directories(PokeMapExport PRIVATE src src/util)
+target_include_directories(PokeCompDumper PRIVATE src src/util)
 
-add_custom_command(TARGET PokeMapExport POST_BUILD
+add_custom_command(TARGET PokeCompDumper POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/config.json"
-        "$<TARGET_FILE_DIR:PokeMapExport>/config.json"
+        "$<TARGET_FILE_DIR:PokeCompDumper>/config.json"
     COMMENT "Copying config.json to build output"
 )

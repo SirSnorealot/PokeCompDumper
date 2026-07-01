@@ -14,12 +14,12 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "CompanyName",      "SirSnorealot"
-            VALUE "FileDescription",  "PokeMapExport"
+            VALUE "FileDescription",  "PokeCompDumper"
             VALUE "FileVersion",      "0.2.0.0"
-            VALUE "InternalName",     "PokeMapExport"
+            VALUE "InternalName",     "PokeCompDumper"
             VALUE "LegalCopyright",   "SirSnorealot"
-            VALUE "OriginalFilename", "PokeMapExport.exe"
-            VALUE "ProductName",      "PokeMapExport"
+            VALUE "OriginalFilename", "PokeCompDumper.exe"
+            VALUE "ProductName",      "PokeCompDumper"
             VALUE "ProductVersion",   "0.2.0.0"
         END
     END

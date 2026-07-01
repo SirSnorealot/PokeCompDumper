@@ -92,14 +92,14 @@ void MainWindow::handleOpenedROM()
     {
         ui->romNameLabel->clear();
         g_loadedROM.clear();
-        QMessageBox::information(this, "PokeMapExport", "Not one of the Pokemon games...");
+        QMessageBox::information(this, "PokeCompDumper", "Not one of the Pokemon games...");
         return;
     }
     if (g_header3 == "J")
     {
         ui->romNameLabel->clear();
         g_loadedROM.clear();
-        QMessageBox::information(this, "PokeMapExport",
+        QMessageBox::information(this, "PokeCompDumper",
                                  "I haven't added Jap support out of pure lazziness. "
                                  "I will though if it get's highly Demanded.");
         return;
@@ -902,7 +902,7 @@ void MainWindow::onExportClicked()
     QTreeWidgetItem *item = ui->mapsAndBanks->currentItem();
     if (!item || !item->parent())
     {
-        QMessageBox::information(this, "PokeMapExport", "Please select a map from the tree.");
+        QMessageBox::information(this, "PokeCompDumper", "Please select a map from the tree.");
         return;
     }
 
@@ -920,7 +920,7 @@ void MainWindow::onExportClicked()
     int mapNumber = item->parent()->indexOfChild(item);
     exportMap(folder, mapBank, mapNumber);
 
-    setWindowTitle("PokeMapExport");
+    setWindowTitle("PokeCompDumper");
     unsetCursor();
     setEnabled(true);
     activateWindow();
@@ -1486,7 +1486,7 @@ void MainWindow::onExportAllClicked()
         bankIdx++;
     }
 
-    setWindowTitle("PokeMapExport");
+    setWindowTitle("PokeCompDumper");
     unsetCursor();
     setEnabled(true);
     activateWindow();
@@ -1499,7 +1499,7 @@ void MainWindow::onExportWorldClicked()
     QTreeWidgetItem *item = ui->mapsAndBanks->currentItem();
     if (!item || !item->parent())
     {
-        QMessageBox::information(this, "PokeMapExport", "Please select a map from the tree.");
+        QMessageBox::information(this, "PokeCompDumper", "Please select a map from the tree.");
         return;
     }
 
@@ -1631,7 +1631,7 @@ void MainWindow::onExportWorldClicked()
     painter.end();
     canvas.save(savePath, "PNG");
 
-    setWindowTitle("PokeMapExport");
+    setWindowTitle("PokeCompDumper");
     unsetCursor();
     setEnabled(true);
     activateWindow();

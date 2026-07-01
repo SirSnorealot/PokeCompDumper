@@ -1,6 +1,6 @@
-# PokeMapExport
+# PokeCompDumper
 
-A Windows GUI tool for extracting map data from GBA Pokémon ROMs into a format compatible with the [pokeemerald](https://github.com/pret/pokeemerald) / [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion) decompilation projects. Original concept was made by hand and ode is expanded on and improved with github copilot.
+A Windows GUI tool for extracting map data from GBA Pokémon ROMs into a format compatible with the [pokeemerald](https://github.com/pret/pokeemerald) / [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion) decompilation projects. Original concept was made by hand and code is expanded on and improved with github copilot.
 
 ---
 
@@ -47,7 +47,7 @@ cmake --build build/debug
 
 ## Usage
 
-1. Launch `PokeMapExport.exe`. `config.json` must be in the same directory.
+1. Launch `PokeCompDumper.exe`. `config.json` must be in the same directory.
 2. Click **Load ROM** and open a supported `.gba` file.
 3. The map tree on the left will populate with all banks and maps.
 4. Click a map to preview its tiles, blocks, and rendered layout.
