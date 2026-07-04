@@ -21,6 +21,7 @@ private slots:
     void onExportWorldClicked();
     void onExportMusicClicked();
     void onExportTrainerSpritesClicked();
+    void onExportOverworldSpritesClicked();
     void onMapSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
 
 private:

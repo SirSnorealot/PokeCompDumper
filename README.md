@@ -27,6 +27,7 @@ ROM hacks based on these games are supported, but the offsets in `config.json` (
 - **Export World Image** — render a stitched PNG of a map and all its connected neighbours
 - **Export Music** — (Experimental- Pretty sure this doesn't work correctly.)
 - **Export Trainers** — export all battle trainer front sprites as PNGs with matching `.pal` files
+- **Export Overworlds** — export object-event/overworld sprite frames as PNGs with matching palettes and metadata
 
 ---
 
@@ -59,6 +60,7 @@ cmake --build build/debug
    - **Export World Image** — saves a PNG of the selected map stitched together with all connected maps.
    - **Export Music** — writes decomp-style `sound/songs/midi/*.mid`, `midi.cfg`, `song_table.inc`, `voice_groups.inc`, `sound/voicegroups/*.inc`, `direct_sound_data.inc` with `.wav` direct sound sources, `programmable_wave_data.inc` with 16-byte `.pcm` wave samples, and key split tables when referenced.
    - **Export Trainers** — writes `graphics/trainers/trainer_###.png` and `trainer_###.pal` files.
+   - **Export Overworlds** — writes sheet PNGs in `graphics/object_events/pics/`, individual frame PNGs in `graphics/object_events/pics/frames/`, palettes, previews, and `object_event_graphics_info.json`.
 
 ---
 
@@ -79,6 +81,8 @@ ROM-specific settings live in `config.json` next to the executable. Each entry i
 | `trainerFrontPicTableOffset` | Optional ROM offset of the trainer front sprite table (hex). Auto-scanned if omitted |
 | `trainerFrontPaletteTableOffset` | Optional ROM offset of the trainer front palette table (hex). Auto-scanned if omitted |
 | `trainerSpriteCount` | Optional trainer sprite count. Required only when using explicit trainer table offsets |
+| `overworldGraphicsInfoPointersOffset` | Optional ROM offset of `gObjectEventGraphicsInfoPointers` (hex). Auto-scanned if omitted |
+| `overworldGraphicsCount` | Optional `NUM_OBJ_EVENT_GFX` count. Required only when using explicit overworld table offsets |
 | `fastSmol` | `"true"` to emit `.4bpp.fastSmol` in `graphics.h` (expansion), `"false"` for `.4bpp.lz` (vanilla) |
 
 ---

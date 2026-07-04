@@ -22,6 +22,7 @@ set(SOURCES
     src/util/pokescript.cpp
     src/util/musicdumper.cpp
     src/util/trainerdumper.cpp
+    src/util/overworlddumper.cpp
     src/mainwindow.cpp
     src/mainwindow.ui
 )
@@ -37,6 +38,7 @@ set(HEADERS
     src/util/pokescript.h
     src/util/musicdumper.h
     src/util/trainerdumper.h
+    src/util/overworlddumper.h
     src/mainwindow.h
 )
 

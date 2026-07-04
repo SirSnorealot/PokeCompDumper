@@ -2,6 +2,7 @@
     "AXVE":  {
                  "name":  "Pokemon Ruby (English)",
                  "fastSmol":  "true",
+                 "trainerSpriteCount":  "83",
                  "mapBankTableOffset":  "53324",
                  "mapLabelsOffset":  "3E73C8",
                  "mapLabelCount":  "88",
@@ -137,6 +138,7 @@
     "AXPE":  {
                  "name":  "Pokemon Sapphire (English)",
                  "fastSmol":  "true",
+                 "trainerSpriteCount":  "83",
                  "mapBankTableOffset":  "53324",
                  "mapLabelsOffset":  "3E7420",
                  "mapLabelCount":  "88",
@@ -216,6 +218,10 @@
     "BPRE":  {
                  "name":  "Pokemon Fire Red (English)",
                  "fastSmol":  "true",
+                 "trainerFrontPicTableOffset":  "23957C",
+                 "trainerFrontPaletteTableOffset":  "239A1C",
+                 "trainerSpriteCount":  "148",
+                 "overworldGraphicsCount":  "152",
                  "mapBankTableOffset":  "5524C",
                  "mapLabelsOffset":  "3F1CAC",
                  "mapLabelCount":  "109",
@@ -2125,6 +2131,8 @@
     "BPGE":  {
                  "name":  "Pokemon Leaf Green (English)",
                  "fastSmol":  "true",
+                 "trainerSpriteCount":  "148",
+                 "overworldGraphicsCount":  "152",
                  "mapBankTableOffset":  "5524C",
                  "mapLabelsOffset":  "3F1AE8",
                  "mapLabelCount":  "109",
@@ -2222,6 +2230,8 @@
     "BPEE":  {
                  "name":  "Pokemon Emerald (English)",
                  "fastSmol":  "true",
+                 "trainerSpriteCount":  "93",
+                 "overworldGraphicsCount":  "239",
                  "mapBankTableOffset":  "84AA4",
                  "mapLabelsOffset":  "5A1480",
                  "mapLabelCount":  "213",

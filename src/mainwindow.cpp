@@ -10,6 +10,7 @@
 #include "lz77.h"
 #include "musicdumper.h"
 #include "trainerdumper.h"
+#include "overworlddumper.h"
 
 #include <QApplication>
 #include <QFileDialog>
@@ -42,6 +43,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->exportWorldBtn, &QPushButton::clicked, this, &MainWindow::onExportWorldClicked);
     connect(ui->exportMusicBtn, &QPushButton::clicked, this, &MainWindow::onExportMusicClicked);
     connect(ui->exportTrainerSpritesBtn, &QPushButton::clicked, this, &MainWindow::onExportTrainerSpritesClicked);
+    connect(ui->exportOverworldSpritesBtn, &QPushButton::clicked, this, &MainWindow::onExportOverworldSpritesClicked);
     connect(ui->mapsAndBanks, &QTreeWidget::currentItemChanged,
             this, &MainWindow::onMapSelectionChanged);
 }
@@ -117,6 +119,7 @@ void MainWindow::handleOpenedROM()
     ui->exportWorldBtn->setEnabled(false);
     ui->exportMusicBtn->setEnabled(false);
     ui->exportTrainerSpritesBtn->setEnabled(false);
+    ui->exportOverworldSpritesBtn->setEnabled(false);
     ui->mapPreview->clear();
     ui->mapPreview->resize(1, 1);
     ui->blocksPreview->clear();
@@ -131,6 +134,7 @@ void MainWindow::handleOpenedROM()
     ui->exportWorldBtn->setEnabled(true);
     ui->exportMusicBtn->setEnabled(true);
     ui->exportTrainerSpritesBtn->setEnabled(true);
+    ui->exportOverworldSpritesBtn->setEnabled(true);
 }
 
 // ---- Load Map List ----------------------------------------------------------------
@@ -1723,5 +1727,46 @@ void MainWindow::onExportTrainerSpritesClicked()
         "PokeCompDumper",
         QString("Trainer sprite export complete.\n\nSprites: %1\nFolder: %2")
             .arg(result.sprites)
+            .arg(result.outputDir));
+}
+
+// ---- Export Overworld Sprites ----------------------------------------------------
+
+void MainWindow::onExportOverworldSpritesClicked()
+{
+    if (g_loadedROM.isEmpty())
+        return;
+
+    QString folder = QFileDialog::getExistingDirectory(
+        this, "Select folder to export overworld sprites to:", QString(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (folder.isEmpty())
+        return;
+
+    setWindowTitle("Please wait...");
+    setCursor(Qt::WaitCursor);
+    setEnabled(false);
+    QCoreApplication::processEvents();
+
+    OverworldSpriteDumpResult result = exportOverworldSprites(g_loadedROM, g_header, folder);
+
+    setWindowTitle("PokeCompDumper");
+    unsetCursor();
+    setEnabled(true);
+    activateWindow();
+
+    if (!result.ok)
+    {
+        QMessageBox::warning(this, "PokeCompDumper", result.error);
+        return;
+    }
+
+    QMessageBox::information(
+        this,
+        "PokeCompDumper",
+        QString("Overworld sprite export complete.\n\nGraphics: %1\nFrames: %2\nPalettes: %3\nFolder: %4")
+            .arg(result.graphics)
+            .arg(result.frames)
+            .arg(result.palettes)
             .arg(result.outputDir));
 }
