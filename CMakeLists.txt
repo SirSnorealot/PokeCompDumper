@@ -21,6 +21,7 @@ set(SOURCES
     src/util/map.cpp
     src/util/pokescript.cpp
     src/util/musicdumper.cpp
+    src/util/trainerdumper.cpp
     src/mainwindow.cpp
     src/mainwindow.ui
 )
@@ -35,6 +36,7 @@ set(HEADERS
     src/util/map.h
     src/util/pokescript.h
     src/util/musicdumper.h
+    src/util/trainerdumper.h
     src/mainwindow.h
 )
 

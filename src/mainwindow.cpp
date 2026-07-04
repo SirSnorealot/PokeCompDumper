@@ -9,6 +9,7 @@
 #include "pokescript.h"
 #include "lz77.h"
 #include "musicdumper.h"
+#include "trainerdumper.h"
 
 #include <QApplication>
 #include <QFileDialog>
@@ -40,6 +41,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->exportAllBtn, &QPushButton::clicked, this, &MainWindow::onExportAllClicked);
     connect(ui->exportWorldBtn, &QPushButton::clicked, this, &MainWindow::onExportWorldClicked);
     connect(ui->exportMusicBtn, &QPushButton::clicked, this, &MainWindow::onExportMusicClicked);
+    connect(ui->exportTrainerSpritesBtn, &QPushButton::clicked, this, &MainWindow::onExportTrainerSpritesClicked);
     connect(ui->mapsAndBanks, &QTreeWidget::currentItemChanged,
             this, &MainWindow::onMapSelectionChanged);
 }
@@ -114,6 +116,7 @@ void MainWindow::handleOpenedROM()
     ui->exportAllBtn->setEnabled(false);
     ui->exportWorldBtn->setEnabled(false);
     ui->exportMusicBtn->setEnabled(false);
+    ui->exportTrainerSpritesBtn->setEnabled(false);
     ui->mapPreview->clear();
     ui->mapPreview->resize(1, 1);
     ui->blocksPreview->clear();
@@ -127,6 +130,7 @@ void MainWindow::handleOpenedROM()
     ui->exportAllBtn->setEnabled(true);
     ui->exportWorldBtn->setEnabled(true);
     ui->exportMusicBtn->setEnabled(true);
+    ui->exportTrainerSpritesBtn->setEnabled(true);
 }
 
 // ---- Load Map List ----------------------------------------------------------------
@@ -1681,4 +1685,43 @@ void MainWindow::onExportMusicClicked()
             .arg(result.tracks)
             .arg(result.voicegroups)
             .arg(result.relatedBlobs));
+}
+
+// ---- Export Trainer Sprites ------------------------------------------------------
+
+void MainWindow::onExportTrainerSpritesClicked()
+{
+    if (g_loadedROM.isEmpty())
+        return;
+
+    QString folder = QFileDialog::getExistingDirectory(
+        this, "Select folder to export trainer sprites to:", QString(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (folder.isEmpty())
+        return;
+
+    setWindowTitle("Please wait...");
+    setCursor(Qt::WaitCursor);
+    setEnabled(false);
+    QCoreApplication::processEvents();
+
+    TrainerSpriteDumpResult result = exportTrainerSprites(g_loadedROM, g_header, folder);
+
+    setWindowTitle("PokeCompDumper");
+    unsetCursor();
+    setEnabled(true);
+    activateWindow();
+
+    if (!result.ok)
+    {
+        QMessageBox::warning(this, "PokeCompDumper", result.error);
+        return;
+    }
+
+    QMessageBox::information(
+        this,
+        "PokeCompDumper",
+        QString("Trainer sprite export complete.\n\nSprites: %1\nFolder: %2")
+            .arg(result.sprites)
+            .arg(result.outputDir));
 }
