@@ -19,6 +19,7 @@ private slots:
     void onExportClicked();
     void onExportAllClicked();
     void onExportWorldClicked();
+    void onExportMusicClicked();
     void onMapSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
 
 private:

@@ -1,6 +1,6 @@
 # PokeCompDumper
 
-A Windows GUI tool for extracting map data from GBA Pokémon ROMs into a format compatible with the [pokeemerald](https://github.com/pret/pokeemerald) / [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion) decompilation projects. Original concept was made by hand and code is expanded on and improved with github copilot.
+A Windows GUI tool for extracting map data from GBA Pokémon ROMs into a format compatible with the [pokeemerald](https://github.com/pret/pokeemerald) / [pokeemerald-expansion](https://github.com/rh-hideout/pokeemerald-expansion) decompilation projects. Original concept was made by hand and code is expanded on and improved with github copilot/Codex.
 
 ---
 
@@ -25,6 +25,7 @@ ROM hacks based on these games are supported, but the offsets in `config.json` (
 - **Export Map** — export a single selected map and all its associated data
 - **Export All** — export every map in the ROM in one pass. Dumps all events and scripts.
 - **Export World Image** — render a stitched PNG of a map and all its connected neighbours
+- **Export Music** — (Experimental- Pretty sure this doesn't work correctly.)
 
 ---
 
@@ -55,6 +56,7 @@ cmake --build build/debug
    - **Export Map** — exports only the currently selected map.
    - **Export All** — exports every map in the ROM (can take a while).
    - **Export World Image** — saves a PNG of the selected map stitched together with all connected maps.
+   - **Export Music** — writes decomp-style `sound/songs/midi/*.mid`, `midi.cfg`, `song_table.inc`, `voice_groups.inc`, `sound/voicegroups/*.inc`, `direct_sound_data.inc` with `.wav` direct sound sources, `programmable_wave_data.inc` with 16-byte `.pcm` wave samples, and key split tables when referenced.
 
 ---
 
@@ -70,6 +72,8 @@ ROM-specific settings live in `config.json` next to the executable. Each entry i
 | `bankPointers` | Pointer for each bank (used to detect bank boundaries) |
 | `mapsPerBank` | Number of maps in each bank |
 | `tilesetSizes` | Metatile counts per tileset address, keyed by hex address |
+| `songTableOffset` | ROM offset of `gSongTable` for music exporting (hex) |
+| `songCount` | Number of 8-byte song table entries to dump |
 | `fastSmol` | `"true"` to emit `.4bpp.fastSmol` in `graphics.h` (expansion), `"false"` for `.4bpp.lz` (vanilla) |
 
 ---

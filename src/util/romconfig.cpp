@@ -35,6 +35,24 @@ QString romConfigString(const QString& gameCode, const QString& key, const QStri
     return sectionFor(gameCode).value(key).toString(def);
 }
 
+QStringList romConfigStringList(const QString& gameCode, const QString& key)
+{
+    QStringList values;
+    QJsonArray arr = sectionFor(gameCode).value(key).toArray();
+    for (const QJsonValue& value : arr)
+        values.append(value.toString());
+    return values;
+}
+
+QMap<QString, QString> romConfigStringMap(const QString& gameCode, const QString& key)
+{
+    QMap<QString, QString> values;
+    QJsonObject obj = sectionFor(gameCode).value(key).toObject();
+    for (auto it = obj.begin(); it != obj.end(); ++it)
+        values[it.key()] = it.value().toString();
+    return values;
+}
+
 QString romBankPointer(const QString& gameCode, int index)
 {
     QJsonArray arr = sectionFor(gameCode).value("bankPointers").toArray();
@@ -65,4 +83,13 @@ QString enumName(const QString& enumType, int value)
         return table.value(key).toString();
     // fallback: return "0" entry or the raw number if no table found
     return table.value("0").toString(QString::number(value));
+}
+
+QString romEnumName(const QString& gameCode, const QString& enumType, int value)
+{
+    QString key = QString::number(value);
+    QJsonObject gameTable = sectionFor(gameCode).value("enums").toObject().value(enumType).toObject();
+    if (gameTable.contains(key))
+        return gameTable.value(key).toString();
+    return enumName(enumType, value);
 }

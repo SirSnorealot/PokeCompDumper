@@ -8,6 +8,7 @@
 #include "poketext.h"
 #include "pokescript.h"
 #include "lz77.h"
+#include "musicdumper.h"
 
 #include <QApplication>
 #include <QFileDialog>
@@ -38,6 +39,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->exportBtn, &QPushButton::clicked, this, &MainWindow::onExportClicked);
     connect(ui->exportAllBtn, &QPushButton::clicked, this, &MainWindow::onExportAllClicked);
     connect(ui->exportWorldBtn, &QPushButton::clicked, this, &MainWindow::onExportWorldClicked);
+    connect(ui->exportMusicBtn, &QPushButton::clicked, this, &MainWindow::onExportMusicClicked);
     connect(ui->mapsAndBanks, &QTreeWidget::currentItemChanged,
             this, &MainWindow::onMapSelectionChanged);
 }
@@ -111,6 +113,7 @@ void MainWindow::handleOpenedROM()
     ui->exportBtn->setEnabled(false);
     ui->exportAllBtn->setEnabled(false);
     ui->exportWorldBtn->setEnabled(false);
+    ui->exportMusicBtn->setEnabled(false);
     ui->mapPreview->clear();
     ui->mapPreview->resize(1, 1);
     ui->blocksPreview->clear();
@@ -123,6 +126,7 @@ void MainWindow::handleOpenedROM()
     ui->exportBtn->setEnabled(true);
     ui->exportAllBtn->setEnabled(true);
     ui->exportWorldBtn->setEnabled(true);
+    ui->exportMusicBtn->setEnabled(true);
 }
 
 // ---- Load Map List ----------------------------------------------------------------
@@ -1635,4 +1639,46 @@ void MainWindow::onExportWorldClicked()
     unsetCursor();
     setEnabled(true);
     activateWindow();
+}
+
+// ---- Export Music ----------------------------------------------------------------
+
+void MainWindow::onExportMusicClicked()
+{
+    if (g_loadedROM.isEmpty())
+        return;
+
+    QString folder = QFileDialog::getExistingDirectory(
+        this, "Select folder to export music to:", QString(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (folder.isEmpty())
+        return;
+
+    setWindowTitle("Please wait...");
+    setCursor(Qt::WaitCursor);
+    setEnabled(false);
+    QCoreApplication::processEvents();
+
+    MusicDumpResult result = exportMusicData(g_loadedROM, g_header, folder);
+
+    setWindowTitle("PokeCompDumper");
+    unsetCursor();
+    setEnabled(true);
+    activateWindow();
+
+    if (!result.ok)
+    {
+        QMessageBox::warning(this, "PokeCompDumper", result.error);
+        return;
+    }
+
+    QMessageBox::information(
+        this,
+        "PokeCompDumper",
+        QString("Music export complete.\n\nSongs: %1\nSong headers: %2\nTracks: %3\nVoicegroups: %4\nRelated files: %5")
+            .arg(result.songs)
+            .arg(result.songHeaders)
+            .arg(result.tracks)
+            .arg(result.voicegroups)
+            .arg(result.relatedBlobs));
 }
