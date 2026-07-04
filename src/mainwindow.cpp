@@ -14,6 +14,7 @@
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QMessageBox>
 #include <QFile>
 #include <QFileInfo>
@@ -1709,7 +1710,82 @@ void MainWindow::onExportTrainerSpritesClicked()
     setEnabled(false);
     QCoreApplication::processEvents();
 
-    TrainerSpriteDumpResult result = exportTrainerSprites(g_loadedROM, g_header, folder);
+    QString candidateError;
+    QVector<TrainerSpriteTableCandidate> candidates = findTrainerSpriteTableCandidates(g_loadedROM, g_header, &candidateError);
+
+    setWindowTitle("PokeCompDumper");
+    unsetCursor();
+    setEnabled(true);
+    activateWindow();
+
+    if (candidates.isEmpty())
+    {
+        QMessageBox::warning(this, "PokeCompDumper", candidateError);
+        return;
+    }
+
+    int selectedIndex = 0;
+    if (candidates.size() > 1)
+    {
+        QStringList items;
+        for (int i = 0; i < candidates.size(); ++i)
+        {
+            const TrainerSpriteTableCandidate& candidate = candidates[i];
+            QString gfxOffset = QString("%1").arg(candidate.gfxOffset, 6, 16, QChar('0')).toUpper();
+            QString palOffset = QString("%1").arg(candidate.palOffset, 6, 16, QChar('0')).toUpper();
+            QString label = QString("%1%2 - gfx 0x%3, palettes 0x%4, entries %5, score %6")
+                                .arg(candidate.fromConfig ? "Configured: " : "")
+                                .arg(i + 1)
+                                .arg(gfxOffset)
+                                .arg(palOffset)
+                                .arg(candidate.count)
+                                .arg(candidate.score);
+            items.append(label);
+        }
+
+        bool ok = false;
+        QString selected = QInputDialog::getItem(
+            this,
+            "Select trainer table",
+            "Select the trainer sprite table pair to export:",
+            items,
+            0,
+            false,
+            &ok);
+        if (!ok || selected.isEmpty())
+            return;
+
+        selectedIndex = items.indexOf(selected);
+        if (selectedIndex < 0)
+            return;
+    }
+
+    const TrainerSpriteTableCandidate selected = candidates[selectedIndex];
+    bool countOk = false;
+    int exportCount = QInputDialog::getInt(
+        this,
+        "Trainer sprite count",
+        "Entries to export from this table:",
+        selected.count,
+        1,
+        200,
+        1,
+        &countOk);
+    if (!countOk)
+        return;
+
+    setWindowTitle("Please wait...");
+    setCursor(Qt::WaitCursor);
+    setEnabled(false);
+    QCoreApplication::processEvents();
+
+    TrainerSpriteDumpResult result = exportTrainerSprites(
+        g_loadedROM,
+        g_header,
+        folder,
+        selected.gfxOffset,
+        selected.palOffset,
+        exportCount);
 
     setWindowTitle("PokeCompDumper");
     unsetCursor();
@@ -1748,7 +1824,74 @@ void MainWindow::onExportOverworldSpritesClicked()
     setEnabled(false);
     QCoreApplication::processEvents();
 
-    OverworldSpriteDumpResult result = exportOverworldSprites(g_loadedROM, g_header, folder);
+    QString candidateError;
+    QVector<OverworldSpriteTableCandidate> candidates = findOverworldSpriteTableCandidates(g_loadedROM, g_header, &candidateError);
+
+    setWindowTitle("PokeCompDumper");
+    unsetCursor();
+    setEnabled(true);
+    activateWindow();
+
+    if (candidates.isEmpty())
+    {
+        QMessageBox::warning(this, "PokeCompDumper", candidateError);
+        return;
+    }
+
+    int selectedIndex = 0;
+    if (candidates.size() > 1)
+    {
+        QStringList items;
+        for (int i = 0; i < candidates.size(); ++i)
+        {
+            const OverworldSpriteTableCandidate& candidate = candidates[i];
+            QString offset = QString("%1").arg(candidate.offset, 6, 16, QChar('0')).toUpper();
+            QString label = QString("%1%2 - offset 0x%3, entries %4, score %5")
+                                .arg(candidate.fromConfig ? "Configured: " : "")
+                                .arg(i + 1)
+                                .arg(offset)
+                                .arg(candidate.count)
+                                .arg(candidate.score);
+            items.append(label);
+        }
+
+        bool ok = false;
+        QString selected = QInputDialog::getItem(
+            this,
+            "Select overworld table",
+            "Select the overworld graphics pointer table to export:",
+            items,
+            0,
+            false,
+            &ok);
+        if (!ok || selected.isEmpty())
+            return;
+
+        selectedIndex = items.indexOf(selected);
+        if (selectedIndex < 0)
+            return;
+    }
+
+    const OverworldSpriteTableCandidate selected = candidates[selectedIndex];
+    bool countOk = false;
+    int exportCount = QInputDialog::getInt(
+        this,
+        "Overworld sprite count",
+        "Entries to export from this table:",
+        selected.count,
+        1,
+        400,
+        1,
+        &countOk);
+    if (!countOk)
+        return;
+
+    setWindowTitle("Please wait...");
+    setCursor(Qt::WaitCursor);
+    setEnabled(false);
+    QCoreApplication::processEvents();
+
+    OverworldSpriteDumpResult result = exportOverworldSprites(g_loadedROM, g_header, folder, selected.offset, exportCount);
 
     setWindowTitle("PokeCompDumper");
     unsetCursor();

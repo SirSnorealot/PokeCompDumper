@@ -27,6 +27,7 @@ struct SpriteTable
     quint32 gfxOffset = 0;
     quint32 palOffset = 0;
     int count = 0;
+    int score = 0;
     bool fromConfig = false;
 };
 
@@ -181,7 +182,7 @@ quint32 findPaletteTable(const QByteArray& rom, quint32 afterOffset, int count)
     return 0;
 }
 
-SpriteTable findTrainerSpriteTable(const QByteArray& rom)
+QVector<SpriteTable> findTrainerSpriteTables(const QByteArray& rom)
 {
     struct Candidate
     {
@@ -215,17 +216,20 @@ SpriteTable findTrainerSpriteTable(const QByteArray& rom)
     }
 
     std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) {
-        return a.score > b.score;
+        if (a.score != b.score)
+            return a.score > b.score;
+        return a.offset < b.offset;
     });
 
+    QVector<SpriteTable> tables;
     for (const Candidate& candidate : candidates)
     {
         quint32 paletteOffset = findPaletteTable(rom, candidate.offset + candidate.count * SpriteEntrySize, candidate.count);
         if (paletteOffset != 0)
-            return {candidate.offset, paletteOffset, candidate.count, false};
+            tables.append({candidate.offset, paletteOffset, candidate.count, candidate.score, false});
     }
 
-    return {};
+    return tables;
 }
 
 QImage renderIndexedSprite(const QByteArray& tiles, const std::array<QColor, 16>& palette, int width, int height)
@@ -262,14 +266,88 @@ bool parseConfiguredTable(const QByteArray& rom, const QString& gameCode, Sprite
     if (!isLikelyPaletteTable(rom, palOffset, count))
         return false;
 
-    table = {gfxOffset, palOffset, count, true};
+    table = {gfxOffset, palOffset, count, count + 1000, true};
+    return true;
+}
+
+bool makeSpriteTable(const QByteArray& rom,
+                     quint32 gfxOffset,
+                     quint32 palOffset,
+                     int count,
+                     bool fromConfig,
+                     SpriteTable& table)
+{
+    if (gfxOffset == 0 || palOffset == 0 || count <= 0 || count > MaxTrainerSprites)
+        return false;
+
+    if (!isLikelySpriteEntry(rom, gfxOffset))
+        return false;
+
+    if (!isLikelyPaletteEntry(rom, palOffset))
+        return false;
+
+    table = {gfxOffset, palOffset, count, count + (fromConfig ? 1000 : 0), fromConfig};
     return true;
 }
 }
 
+QVector<TrainerSpriteTableCandidate> findTrainerSpriteTableCandidates(const QString& romPath,
+                                                                      const QString& gameCode,
+                                                                      QString* error)
+{
+    QFile file(romPath);
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        if (error)
+            *error = "Could not open ROM file.";
+        return {};
+    }
+
+    QByteArray rom = file.readAll();
+    file.close();
+    if (rom.isEmpty())
+    {
+        if (error)
+            *error = "ROM file is empty.";
+        return {};
+    }
+
+    QVector<TrainerSpriteTableCandidate> result;
+
+    SpriteTable configured;
+    if (parseConfiguredTable(rom, gameCode, configured))
+        result.append({configured.gfxOffset, configured.palOffset, configured.count, configured.score, configured.fromConfig});
+
+    QVector<SpriteTable> found = findTrainerSpriteTables(rom);
+    for (const SpriteTable& table : found)
+    {
+        bool duplicate = false;
+        for (const TrainerSpriteTableCandidate& existing : result)
+        {
+            if (existing.gfxOffset == table.gfxOffset
+                && existing.palOffset == table.palOffset
+                && existing.count == table.count)
+            {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate)
+            result.append({table.gfxOffset, table.palOffset, table.count, table.score, table.fromConfig});
+    }
+
+    if (result.isEmpty() && error)
+        *error = "Could not locate trainer sprite tables. Add trainerFrontPicTableOffset, trainerFrontPaletteTableOffset, and trainerSpriteCount to config.json for this ROM.";
+
+    return result;
+}
+
 TrainerSpriteDumpResult exportTrainerSprites(const QString& romPath,
                                              const QString& gameCode,
-                                             const QString& outputFolder)
+                                             const QString& outputFolder,
+                                             quint32 gfxTableOffset,
+                                             quint32 paletteTableOffset,
+                                             int spriteCount)
 {
     TrainerSpriteDumpResult result;
 
@@ -289,8 +367,25 @@ TrainerSpriteDumpResult exportTrainerSprites(const QString& romPath,
     }
 
     SpriteTable table;
-    if (!parseConfiguredTable(rom, gameCode, table))
-        table = findTrainerSpriteTable(rom);
+    if (gfxTableOffset != 0 || paletteTableOffset != 0 || spriteCount != 0)
+    {
+        SpriteTable configured;
+        bool selectedFromConfig = parseConfiguredTable(rom, gameCode, configured)
+                               && configured.gfxOffset == gfxTableOffset
+                               && configured.palOffset == paletteTableOffset
+                               && configured.count == spriteCount;
+        if (!makeSpriteTable(rom, gfxTableOffset, paletteTableOffset, spriteCount, selectedFromConfig, table))
+        {
+            result.error = "Selected trainer sprite tables are no longer valid for this ROM.";
+            return result;
+        }
+    }
+    else if (!parseConfiguredTable(rom, gameCode, table))
+    {
+        QVector<SpriteTable> tables = findTrainerSpriteTables(rom);
+        if (!tables.isEmpty())
+            table = tables.first();
+    }
 
     if (table.gfxOffset == 0 || table.palOffset == 0 || table.count <= 0)
     {

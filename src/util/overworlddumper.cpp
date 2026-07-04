@@ -66,6 +66,7 @@ struct PointerTable
 {
     quint32 offset = 0;
     int count = 0;
+    int score = 0;
     bool fromConfig = false;
 };
 
@@ -200,18 +201,22 @@ int countPointerTableEntries(const QByteArray& rom, quint32 tableOffset)
     return count;
 }
 
-PointerTable findGraphicsPointerTable(const QByteArray& rom)
+QVector<PointerTable> findGraphicsPointerTables(const QByteArray& rom)
 {
-    struct Candidate
-    {
-        quint32 offset = 0;
-        int count = 0;
-        int score = 0;
-    };
-
-    QVector<Candidate> candidates;
+    QVector<PointerTable> candidates;
     for (quint32 offset = 0; offset + 4 <= static_cast<quint32>(rom.size()); offset += 4)
     {
+        if (offset >= 4)
+        {
+            quint32 previousInfoOffset = 0;
+            if (romPointerToOffset(readU32(rom, static_cast<int>(offset - 4)), rom.size(), previousInfoOffset))
+            {
+                GraphicsInfo previousInfo;
+                if (parseGraphicsInfo(rom, previousInfoOffset, previousInfo))
+                    continue;
+            }
+        }
+
         int count = countPointerTableEntries(rom, offset);
         if (count < 50)
             continue;
@@ -219,17 +224,16 @@ PointerTable findGraphicsPointerTable(const QByteArray& rom)
         int score = count;
         if (count >= 100 && count <= 260)
             score += 200;
-        candidates.append({offset, count, score});
+        candidates.append({offset, count, score, false});
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) {
-        return a.score > b.score;
+    std::sort(candidates.begin(), candidates.end(), [](const PointerTable& a, const PointerTable& b) {
+        if (a.score != b.score)
+            return a.score > b.score;
+        return a.offset < b.offset;
     });
 
-    if (candidates.isEmpty())
-        return {};
-
-    return {candidates.first().offset, candidates.first().count, false};
+    return candidates;
 }
 
 bool parseConfiguredPointerTable(const QByteArray& rom, const QString& gameCode, PointerTable& table)
@@ -244,7 +248,24 @@ bool parseConfiguredPointerTable(const QByteArray& rom, const QString& gameCode,
     if (countPointerTableEntries(rom, offset) < count)
         return false;
 
-    table = {offset, count, true};
+    table = {offset, count, count + 1000, true};
+    return true;
+}
+
+bool makePointerTable(const QByteArray& rom, quint32 offset, int count, bool fromConfig, PointerTable& table)
+{
+    if (offset == 0 || count <= 0 || count > MaxObjectEventGraphics)
+        return false;
+
+    quint32 firstInfoOffset = 0;
+    if (!romPointerToOffset(readU32(rom, offset), rom.size(), firstInfoOffset))
+        return false;
+
+    GraphicsInfo firstInfo;
+    if (!parseGraphicsInfo(rom, firstInfoOffset, firstInfo))
+        return false;
+
+    table = {offset, count, count + (fromConfig ? 1000 : 0), fromConfig};
     return true;
 }
 
@@ -393,9 +414,60 @@ bool writeFile(const QString& path, const QByteArray& data)
 }
 }
 
+QVector<OverworldSpriteTableCandidate> findOverworldSpriteTableCandidates(const QString& romPath,
+                                                                          const QString& gameCode,
+                                                                          QString* error)
+{
+    QFile file(romPath);
+    if (!file.open(QIODevice::ReadOnly))
+    {
+        if (error)
+            *error = "Could not open ROM file.";
+        return {};
+    }
+
+    QByteArray rom = file.readAll();
+    file.close();
+    if (rom.isEmpty())
+    {
+        if (error)
+            *error = "ROM file is empty.";
+        return {};
+    }
+
+    QVector<OverworldSpriteTableCandidate> result;
+
+    PointerTable configured;
+    if (parseConfiguredPointerTable(rom, gameCode, configured))
+        result.append({configured.offset, configured.count, configured.score, configured.fromConfig});
+
+    QVector<PointerTable> found = findGraphicsPointerTables(rom);
+    for (const PointerTable& table : found)
+    {
+        bool duplicate = false;
+        for (const OverworldSpriteTableCandidate& existing : result)
+        {
+            if (existing.offset == table.offset && existing.count == table.count)
+            {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate)
+            result.append({table.offset, table.count, table.score, table.fromConfig});
+    }
+
+    if (result.isEmpty() && error)
+        *error = "Could not locate overworld graphics tables. Add overworldGraphicsInfoPointersOffset and overworldGraphicsCount to config.json for this ROM.";
+
+    return result;
+}
+
 OverworldSpriteDumpResult exportOverworldSprites(const QString& romPath,
                                                  const QString& gameCode,
-                                                 const QString& outputFolder)
+                                                 const QString& outputFolder,
+                                                 quint32 tableOffset,
+                                                 int tableCount)
 {
     OverworldSpriteDumpResult result;
 
@@ -415,8 +487,24 @@ OverworldSpriteDumpResult exportOverworldSprites(const QString& romPath,
     }
 
     PointerTable pointerTable;
-    if (!parseConfiguredPointerTable(rom, gameCode, pointerTable))
-        pointerTable = findGraphicsPointerTable(rom);
+    if (tableOffset != 0 || tableCount != 0)
+    {
+        PointerTable configured;
+        bool selectedFromConfig = parseConfiguredPointerTable(rom, gameCode, configured)
+                               && configured.offset == tableOffset
+                               && configured.count == tableCount;
+        if (!makePointerTable(rom, tableOffset, tableCount, selectedFromConfig, pointerTable))
+        {
+            result.error = "Selected overworld graphics table is no longer valid for this ROM.";
+            return result;
+        }
+    }
+    else if (!parseConfiguredPointerTable(rom, gameCode, pointerTable))
+    {
+        QVector<PointerTable> tables = findGraphicsPointerTables(rom);
+        if (!tables.isEmpty())
+            pointerTable = tables.first();
+    }
 
     if (pointerTable.offset == 0 || pointerTable.count <= 0)
     {

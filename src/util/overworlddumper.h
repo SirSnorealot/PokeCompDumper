@@ -1,6 +1,16 @@
 #pragma once
 
 #include <QString>
+#include <QVector>
+#include <QtGlobal>
+
+struct OverworldSpriteTableCandidate
+{
+    quint32 offset = 0;
+    int count = 0;
+    int score = 0;
+    bool fromConfig = false;
+};
 
 struct OverworldSpriteDumpResult
 {
@@ -13,6 +23,12 @@ struct OverworldSpriteDumpResult
     bool usedConfiguredOffsets = false;
 };
 
+QVector<OverworldSpriteTableCandidate> findOverworldSpriteTableCandidates(const QString& romPath,
+                                                                          const QString& gameCode,
+                                                                          QString* error = nullptr);
+
 OverworldSpriteDumpResult exportOverworldSprites(const QString& romPath,
                                                  const QString& gameCode,
-                                                 const QString& outputFolder);
+                                                 const QString& outputFolder,
+                                                 quint32 tableOffset = 0,
+                                                 int tableCount = 0);
